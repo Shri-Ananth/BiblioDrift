@@ -1,115 +1,169 @@
 /**
  * Ambient Sanctuary Logic for BiblioDrift
- * Handles background ambient sounds (Rain, Fireplace) with volume control.
+ * Handles background ambient sounds with layered toggle switches and global volume control.
  */
 
 class AmbientManager {
     constructor() {
+       // --- 1. DOM Elements Mapping ---
         this.toggleBtn = document.getElementById('ambientToggle');
         this.panel = document.getElementById('ambientPanel');
+        this.volumeSlider = document.getElementById('ambientVolume');
+        
+        // Toggle input bindings
         this.rainToggle = document.getElementById('rainToggle');
         this.fireToggle = document.getElementById('fireToggle');
-        this.volumeSlider = document.getElementById('ambientVolume');
+        this.spaceToggle = document.getElementById('spaceToggle');
+        this.trainToggle = document.getElementById('trainToggle');
+        this.forestToggle = document.getElementById('forestToggle'); // 🌟 ADD THIS LINE
+        this.animeToggle = document.getElementById('animeToggle');
+        this.magicToggle = document.getElementById('magicToggle');
 
-        // Defensive check: only initialize if elements exist
-        if (!this.toggleBtn || !this.panel) return;
+              // Defensive check: only initialize if core panel elements exist
 
+        if (!this.toggleBtn || !this.panel) {
+
+            console.warn("Ambient Sanctuary elements missing from DOM.");
+
+            return;
+
+        }
+
+        // --- 2. Audio Initialization & Audio Asset Mapping ---
         this.rainAudio = new Audio('https://archive.org/download/Red_Library_Nature_Rain/R22-25-General%20Rain.mp3');
         this.fireAudio = new Audio('https://archive.org/download/1-hour-cozy-fire-crackling-fireplace-320/1%20hour%20Cozy%20Fire%20Crackling%20Fireplace%20320.mp3');
-        
-        this.rainAudio.loop = true;
-        this.fireAudio.loop = true;
+        this.spaceAudio = new Audio('../assets/sounds/space.mp3');
+        this.trainAudio = new Audio('../assets/sounds/train.mp3');
+        this.forestAudio = new Audio('../assets/sounds/forest.mp3');
+        this.animeAudio = new Audio('../assets/sounds/anime.mp3');
+        this.magicAudio = new Audio('../assets/sounds/magic.mp3');
 
-        // Prevent the weird 'high bass' or thunder sound at the very end of the rain track
-        // by artificially looping it a few seconds before the track actually ends.
+        // Cache all audio objects into an array for cleaner looping operations
+        this.allTracks = [this.rainAudio, this.fireAudio, this.spaceAudio, this.trainAudio, this.forestAudio, this.animeAudio, this.magicAudio];
+
+        // --- 3. Preload and Loop Configuration ---
+        this.allTracks.forEach(track => {
+            track.preload = 'auto';
+            track.loop = true;
+        });
+
+        // Prevent the 'high bass' microphone bump or thunder sound at the very end of the rain track
+        // by artificially resetting its looping frame 4 seconds early.
         this.rainAudio.addEventListener('timeupdate', () => {
-            // Cut off the last 4 seconds to bypass the microphone bump/thunder
             if (this.rainAudio.duration && this.rainAudio.currentTime >= this.rainAudio.duration - 4) {
                 this.rainAudio.currentTime = 0;
-                // Ensure it keeps playing after reset
                 this.rainAudio.play().catch(e => {});
             }
         });
 
-        // Global Audio Unlock (Required by modern browsers)
+        // --- 4. Global Audio Context Unlock (Required by modern browsers) ---
         this.audioUnlocked = false;
         this.unlockAudio = () => {
             if (this.audioUnlocked) return;
-            this.rainAudio.play().then(() => { this.rainAudio.pause(); }).catch(e => {});
-            this.fireAudio.play().then(() => { this.fireAudio.pause(); }).catch(e => {});
-            console.log("Audio Context Unlocked");
+            
+            // Soft-play and pause elements instantly to whitelist audio flags on user interactions
+            this.allTracks.forEach(track => {
+                track.play().then(() => { track.pause(); }).catch(e => {});
+            });
+
+            console.log("Audio Context Unlocked Across All Tracks");
             this.audioUnlocked = true;
             window.removeEventListener('click', this.unlockAudio);
         };
         window.addEventListener('click', this.unlockAudio);
 
+        // --- 5. Boot Processes & Volume Injection ---
         this.init();
-        // Ensure volume is set immediately
-        this.rainAudio.volume = 0.5;
-        this.fireAudio.volume = 0.5;
+        this.syncVolume();
     }
 
-    init() {
-        // Toggle Panel
-        this.toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.unlockAudio(); // Explicitly unlock audio here since propagation is stopped!
-            this.panel.classList.toggle('active');
-        });
+    /**
+     * Helper to uniformly configure, play, or pause an audio channel
+     */
+    handlePlayback(toggleInput, audioInstance, trackLabel) {
+        if (!toggleInput || !audioInstance) return;
 
-        // Close panel when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!this.panel.contains(e.target) && e.target !== this.toggleBtn) {
-                this.panel.classList.remove('active');
-            }
-        });
-
-        // Rain Toggle
-        this.rainToggle.addEventListener('change', () => {
-            if (this.rainToggle.checked) {
-                this.rainAudio.currentTime = 0;
-                this.rainAudio.play()
-                    .then(() => console.log("Rain audio playing"))
+        toggleInput.addEventListener('change', () => {
+            if (toggleInput.checked) {
+                audioInstance.currentTime = 0;
+                audioInstance.play()
+                    .then(() => console.log(`${trackLabel} audio playing`))
                     .catch(e => {
-                        console.error("Rain audio failed:", e);
+                        console.error(`${trackLabel} audio failed:`, e);
                         if (typeof showToast === 'function') {
                             showToast("Audio playback blocked. Click anywhere to enable.", "info");
                         }
                     });
             } else {
-                this.rainAudio.pause();
+                audioInstance.pause();
             }
         });
+    }
 
-        // Fire Toggle
-        this.fireToggle.addEventListener('change', () => {
-            if (this.fireToggle.checked) {
-                this.fireAudio.currentTime = 0;
-                this.fireAudio.play()
-                    .then(() => console.log("Fire audio playing"))
-                    .catch(e => {
-                        console.error("Fire audio failed:", e);
-                    });
+    /**
+     * Loops through tracking variables to apply uniform master gains
+     */
+    syncVolume() {
+        if (!this.volumeSlider) return;
+        const volume = parseFloat(this.volumeSlider.value) ?? 0.5;
+        this.allTracks.forEach(track => {
+            if (track) track.volume = volume;
+        });
+    }
+
+    init() {
+        // --- UI Interactions Panel Toggle ---
+        this.toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevents document click from instantly firing and closing it
+            this.unlockAudio();  // Explicitly unlock browser media restrictions
+
+            // Toggle all common active status naming variants to guarantee CSS pickup
+            this.panel.classList.toggle('active');
+            this.panel.classList.toggle('show');
+            this.panel.classList.toggle('open');
+
+            // Hard Fallback: If style rules fail completely via stylesheet, force layout rendering flag
+            if (this.panel.classList.contains('active')) {
+                if (window.getComputedStyle(this.panel).display === 'none') {
+                    this.panel.style.display = 'block';
+                }
             } else {
-                this.fireAudio.pause();
+                this.panel.style.removeAttribute ? this.panel.style.removeAttribute('display') : this.panel.style.display = '';
             }
         });
 
-        // Volume Control
-        this.volumeSlider.addEventListener('input', () => {
-            const volume = parseFloat(this.volumeSlider.value);
-            this.rainAudio.volume = volume;
-            this.fireAudio.volume = volume;
+        // Close panel context when clicking anywhere outside of its boundary box
+        document.addEventListener('click', (e) => {
+            if (!this.panel.contains(e.target) && e.target !== this.toggleBtn) {
+                this.panel.classList.remove('active', 'show', 'open');
+                if (this.panel.style.display === 'block') {
+                    this.panel.style.display = '';
+                }
+            }
         });
 
-        // Initial sync
-        const startVolume = parseFloat(this.volumeSlider.value) || 0.5;
-        this.rainAudio.volume = startVolume;
-        this.fireAudio.volume = startVolume;
+        // Prevent closing drawer when clicking internal control settings (like the volume slider)
+        this.panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // --- Core Audio Input Observers ---
+        this.handlePlayback(this.rainToggle, this.rainAudio, "Rainy Evening");
+        this.handlePlayback(this.fireToggle, this.fireAudio, "Cozy Fireplace");
+        this.handlePlayback(this.spaceToggle, this.spaceAudio, "Space Drift");
+        this.handlePlayback(this.trainToggle, this.trainAudio, "Night Train");
+        this.handlePlayback(this.forestToggle, this.forestAudio, "Forest Cabin");
+        this.handlePlayback(this.animeToggle, this.animeAudio, "Anime Ambience");
+        this.handlePlayback(this.magicToggle, this.magicAudio, "Magic Realm");
+
+        // --- Master Volume Monitor ---
+        this.volumeSlider?.addEventListener('input', () => {
+            this.syncVolume();
+        });
     }
 }
 
-// Initialize on load
+// Initialize application on secure DOM state load
 document.addEventListener('DOMContentLoaded', () => {
     window.ambientManager = new AmbientManager();
 });
