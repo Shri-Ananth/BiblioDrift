@@ -228,17 +228,17 @@
 
                         <div class="book-actions-section">
                             <label for="modal-shelf-select" style="margin-right: 10px; font-weight: bold;">Move to Shelf:</label>
-                            <select id="modal-shelf-select" class="shelf-select" style="padding: 0.5rem; border-radius: 5px; border: 1px solid #ccc;">
+                            <select id="modal-shelf-select" class="shelf-select modal-shelf-select">
                                 <option value="current">Currently Immersed</option>
                                 <option value="want">Anticipated Journeys</option>
                                 <option value="finished">Lifetime Favorites</option>
                             </select>
                             <!-- Issue #23: Remove from Library button UI -->
-                            <button class="action-btn-primary remove-from-library" id="modal-remove-btn" style="margin-left: 10px; background-color: #ff4d4d;">
+                            <button class="action-btn-secondary remove-from-library" id="modal-remove-btn">
                                 <i class="fa-solid fa-trash"></i>
                                 Remove
                             </button>
-                            <button class="action-btn-secondary" id="modal-share-btn-lib" style="margin-left: 10px; border: 1px solid var(--glass-border); background-color: transparent; color: var(--text-main); padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; transition: all 0.3s ease;">
+                            <button class="action-btn-secondary modal-share-btn-lib" id="modal-share-btn-lib">
                                 <i class="fa-solid fa-share-nodes"></i> Share
                             </button>
                         </div>
