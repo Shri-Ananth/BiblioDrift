@@ -80,6 +80,7 @@
 // API_BASE and MOOD_API_BASE are declared globally in config.js (loaded first).
 // Do NOT re-declare them here — use the globals from config.js directly.
 const IS_DEV = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const moodAnalysisCache = new Map();
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -700,6 +701,7 @@ class BookRenderer {
                     <div class="book-actions">
                         <button class="btn-icon add-btn" title="Add to Library"><i class="fa-regular fa-heart"></i></button>
                         <button class="btn-icon share-btn" title="Share Book"><i class="fa-solid fa-share-nodes"></i></button>
+                        <button class="btn-icon mood-btn" title="Explore Mood"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                         <button class="btn-icon flip-back-btn" title="Flip Back"><i class="fa-solid fa-rotate-left"></i></button>
                     </div>
                 </div>
@@ -771,6 +773,12 @@ class BookRenderer {
                 console.error('Failed to copy text: ', err);
                 showToast('Failed to copy book details.', 'error');
             });
+        });
+
+        // Explore Mood Button
+        scene.querySelector('.mood-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.exploreBookMood(title, authors);
         });
 
         // Flip Back Button
@@ -947,6 +955,14 @@ class BookRenderer {
                 if (window.BookPreview && book.id) {
                     window.BookPreview.open(book.id, book.volumeInfo.title || 'Book Preview');
                 }
+            };
+        }
+
+        // Explore Mood Button
+        const moodBtnModal = document.getElementById('modal-mood-btn');
+        if (moodBtnModal) {
+            moodBtnModal.onclick = () => {
+                this.exploreBookMood(book.volumeInfo.title, book.volumeInfo.authors?.join(", ") || "");
             };
         }
 
@@ -1129,17 +1145,205 @@ class BookRenderer {
         }
     }
 
-    getMoodIcon(mood) {
-        const icons = {
-            'Melancholic': 'fa-cloud-showers-heavy',
-            'Cozy': 'fa-mug-hot',
-            'Tense': 'fa-bolt',
-            'Inspiring': 'fa-lightbulb',
-            'Whimsical': 'fa-wand-magic-sparkles',
-            'Dark': 'fa-moon',
-            'Adventurous': 'fa-compass'
+    async exploreBookMood(title, author) {
+        const cacheKey = `${title.toLowerCase().trim()}|${(author || '').toLowerCase().trim()}`;
+        
+        // 1. Create and show the mood modal dynamically
+        let modal = document.getElementById('mood-analysis-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'mood-analysis-modal';
+            modal.className = 'mood-modal';
+            document.body.appendChild(modal);
+        } else {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+
+        const escapeHTML = (str) => {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
         };
-        return icons[mood] || 'fa-tag';
+
+        modal.innerHTML = `
+            <div class="mood-modal-content">
+                <div class="mood-modal-header">
+                    <h3>Mood Deep-Dive: ${escapeHTML(title)}</h3>
+                    <button class="close-modal" id="close-mood-modal">&times;</button>
+                </div>
+                <div class="mood-modal-body">
+                    <div id="mood-modal-loader" class="mood-loading-section" style="text-align: center; padding: 2rem;">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x" style="color: var(--accent-gold); margin-bottom: 1rem;"></i>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Scraping GoodReads reviews & analyzing sentiment...</p>
+                    </div>
+                    <div id="mood-modal-error" class="mood-error-section hidden" style="text-align: center; padding: 2rem;">
+                        <i class="fa-solid fa-triangle-exclamation fa-2x" style="color: #f44336; margin-bottom: 1rem;"></i>
+                        <p id="mood-error-message" style="color: var(--text-main); font-size: 0.95rem;"></p>
+                    </div>
+                    <div id="mood-modal-results" class="mood-results-section hidden">
+                        <div class="mood-section">
+                            <h4>Primary Moods</h4>
+                            <div class="mood-tags-large" id="mood-modal-tags" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.5rem;">
+                                <!-- Mood tags go here -->
+                            </div>
+                        </div>
+                        <div class="mood-section" style="margin-top: 1.5rem;">
+                            <h4>Overall Sentiment</h4>
+                            <div class="sentiment-bar">
+                                <div class="sentiment-fill" id="mood-modal-sentiment-fill" style="width: 0%;"></div>
+                            </div>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;" id="mood-modal-sentiment-desc"></p>
+                        </div>
+                        <div class="mood-section" style="margin-top: 1.5rem;">
+                            <h4>Bookseller's Vibe</h4>
+                            <div class="vibe-quote" id="mood-modal-vibe" style="margin-top: 0.5rem;">
+                                <!-- Vibe quote goes here -->
+                            </div>
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 1.5rem;" id="mood-modal-meta">
+                            <!-- Meta info goes here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const closeModal = () => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+        };
+
+        modal.querySelector('#close-mood-modal').onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        const showLoader = () => {
+            modal.querySelector('#mood-modal-loader').classList.remove('hidden');
+            modal.querySelector('#mood-modal-error').classList.add('hidden');
+            modal.querySelector('#mood-modal-results').classList.add('hidden');
+        };
+
+        const showError = (msg) => {
+            modal.querySelector('#mood-modal-loader').classList.add('hidden');
+            modal.querySelector('#mood-modal-error').classList.remove('hidden');
+            modal.querySelector('#mood-modal-error p').textContent = msg;
+            modal.querySelector('#mood-modal-results').classList.add('hidden');
+        };
+
+        const renderResults = (analysis) => {
+            modal.querySelector('#mood-modal-loader').classList.add('hidden');
+            modal.querySelector('#mood-modal-error').classList.add('hidden');
+            const resultsSection = modal.querySelector('#mood-modal-results');
+            resultsSection.classList.remove('hidden');
+
+            // Render primary moods
+            const tagsContainer = modal.querySelector('#mood-modal-tags');
+            tagsContainer.innerHTML = '';
+            if (analysis.primary_moods && analysis.primary_moods.length > 0) {
+                analysis.primary_moods.forEach(moodObj => {
+                    const moodVal = moodObj.mood;
+                    const confidence = moodObj.confidence;
+                    const tag = document.createElement('span');
+                    const moodClass = `mood-${moodVal.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                    tag.className = `mood-tag-large ${moodClass}`;
+                    tag.innerHTML = `<i class="fa-solid ${this.getMoodIcon(moodVal)}"></i> ${escapeHTML(moodVal)} (${Math.round(confidence * 100)}%)`;
+                    tagsContainer.appendChild(tag);
+                });
+            } else {
+                tagsContainer.innerHTML = '<span style="font-size: 0.9rem; color: var(--text-muted);">No distinct moods detected.</span>';
+            }
+
+            // Render sentiment bar
+            const compoundScore = analysis.overall_sentiment?.compound_score || 0;
+            const percentage = Math.round(((compoundScore + 1) / 2) * 100);
+            modal.querySelector('#mood-modal-sentiment-fill').style.width = `${percentage}%`;
+            modal.querySelector('#mood-modal-sentiment-desc').textContent = `${analysis.mood_description || 'Sentiment analyzed successfully.'} (Score: ${compoundScore.toFixed(2)})`;
+
+            // Render vibe
+            modal.querySelector('#mood-modal-vibe').innerHTML = `<p>${escapeHTML(analysis.bibliodrift_vibe || 'A quiet read with deep undertones.')}</p>`;
+
+            // Render metadata
+            const totalReviews = analysis.total_reviews_analyzed || 0;
+            const confidenceScore = analysis.analysis_confidence ? Math.round(analysis.analysis_confidence * 100) : 50;
+            modal.querySelector('#mood-modal-meta').textContent = `Analyzed ${totalReviews} Goodreads reviews. Vibe confidence: ${confidenceScore}%.`;
+        };
+
+        // 2. Fetch or load from cache
+        if (moodAnalysisCache.has(cacheKey)) {
+            if (IS_DEV) console.log(`Cache hit for mood analysis: ${cacheKey}`);
+            renderResults(moodAnalysisCache.get(cacheKey));
+            return;
+        }
+
+        showLoader();
+
+        try {
+            const csrf = getCookie('csrf_access_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrf) {
+                headers['X-CSRF-TOKEN'] = csrf;
+            }
+
+            const res = await fetch(`${MOOD_API_BASE}/analyze-mood`, {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify({ title, author })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const analysis = data.data?.mood_analysis || data.mood_analysis;
+                if (analysis && analysis.success) {
+                    moodAnalysisCache.set(cacheKey, analysis);
+                    renderResults(analysis);
+                } else {
+                    showError(analysis?.error || 'Could not parse mood analysis for this book.');
+                }
+            } else {
+                if (res.status === 429) {
+                    const data = await res.json().catch(() => ({}));
+                    const retryAfter = data.retry_after || 60;
+                    showError(`Rate limit exceeded. Please try again in ${retryAfter} seconds.`);
+                } else if (res.status === 503) {
+                    showError('Mood analysis is currently offline (missing backend dependencies).');
+                } else if (res.status === 404) {
+                    showError('No Goodreads reviews found for this title to analyze.');
+                } else {
+                    showError(`Failed to fetch mood analysis (Server error: ${res.status}).`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to explore book mood:', err);
+            showError('Network error connecting to mood analysis service.');
+        }
+    }
+
+    getMoodIcon(mood) {
+        if (!mood) return 'fa-tag';
+        const icons = {
+            'melancholic': 'fa-cloud-showers-heavy',
+            'melancholy': 'fa-cloud-showers-heavy',
+            'cozy': 'fa-mug-hot',
+            'tense': 'fa-bolt',
+            'inspiring': 'fa-lightbulb',
+            'uplifting': 'fa-lightbulb',
+            'whimsical': 'fa-wand-magic-sparkles',
+            'dark': 'fa-moon',
+            'adventurous': 'fa-compass',
+            'mysterious': 'fa-mask',
+            'romantic': 'fa-heart',
+            'intense': 'fa-fire',
+            'thought-provoking': 'fa-brain',
+            'thoughtful': 'fa-brain'
+        };
+        return icons[mood.toLowerCase().trim()] || 'fa-tag';
     }
 
     async renderCuratedSection(query, elementId, maxResults = 5) {
