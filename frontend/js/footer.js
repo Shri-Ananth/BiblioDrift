@@ -22,11 +22,8 @@ const createFooter = () => {
             <li><a href="library.html">My Library</a></li>
             <li><a href="chat.html">Literary Chat</a></li>
             <li><a href="auth.html">Account</a></li>
-            <li>
-          <a href="https://github.com/devanshi14malhotra/BiblioDrift" target="_blank">
-           Repository
-          </a> 
-        </ul>
+            <li><a href="https://github.com/devanshi14malhotra/BiblioDrift" target="_blank" rel="noopener noreferrer">Repository</a></li>
+          </ul>
         </nav>
 
         <div class="footer-legal">
