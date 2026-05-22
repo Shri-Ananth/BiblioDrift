@@ -369,8 +369,10 @@
     <button id="ambientToggle" title="Ambient Sanctuary" aria-expanded="false" aria-controls="ambientPanel">
       <i class="fa-solid fa-leaf"></i>
     </button>
+    
     <div id="ambientPanel" class="ambient-panel">
       <h3 style="color: var(--text-main) !important;">Ambient Sanctuary</h3>
+      
       <div class="ambient-option">
         <span style="color: var(--text-main) !important;"><i class="fa-solid fa-cloud-rain"></i> Rainy Evening</span>
         <label class="switch">
@@ -378,6 +380,7 @@
           <span class="slider"></span>
         </label>
       </div>
+      
       <div class="ambient-option">
         <span style="color: var(--text-main) !important;"><i class="fa-solid fa-fire"></i> Cozy Fireplace</span>
         <label class="switch">
@@ -385,6 +388,47 @@
           <span class="slider"></span>
         </label>
       </div>
+
+      <div class="ambient-option">
+        <span style="color: var(--text-main) !important;"><i class="fa-solid fa-rocket"></i> Space Drift</span>
+        <label class="switch">
+          <input type="checkbox" id="spaceToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="ambient-option">
+        <span style="color: var(--text-main) !important;"><i class="fa-solid fa-train"></i> Night Train</span>
+        <label class="switch">
+          <input type="checkbox" id="trainToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="ambient-option">
+        <span style="color: var(--text-main) !important;"><i class="fa-solid fa-tree"></i> Forest Cabin</span>
+        <label class="switch">
+          <input type="checkbox" id="forestToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="ambient-option">
+        <span style="color: var(--text-main) !important;"><i class="fa-solid fa-wand-sparkles"></i> Magic Realm</span>
+        <label class="switch">
+          <input type="checkbox" id="magicToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="ambient-option">
+        <span style="color: var(--text-main) !important;"><i class="fa-solid fa-torii-gate"></i> Wisteria Night</span>
+        <label class="switch">
+          <input type="checkbox" id="animeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
       <div class="ambient-option">
         <span style="color: var(--text-main) !important;"><i class="fa-solid fa-water"></i> Calm Ocean Waves</span>
         <label class="switch">
@@ -411,52 +455,38 @@
     </div>
   </div>
 
-  <!-- <script src="../js/theme-manager.js"></script>
   <script src="../js/ambient.js"></script>
-  <script src="../js/security.js"></script> -->
+  <script src="../js/security.js"></script>
+  <script src="../js/pwa.js"></script>
+  <!-- AI Chatbot Widget -->
+  <div id="ai-chatbot-widget" class="chatbot-widget">
+    <button id="chatbot-toggle-btn" class="chatbot-toggle-btn" title="Chat with Elara">
+      <i class="fa-solid fa-robot"></i>
+    </button>
+    <div id="chatbot-window" class="chatbot-window hidden">
+      <div class="chatbot-header">
+        <div class="chatbot-bot-info">
+          <div class="chatbot-avatar"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+          <div class="chatbot-name-status">
+            <h4>Elara</h4>
+            <span class="chatbot-status">The Bookseller</span>
+          </div>
+        </div>
+        <button id="chatbot-close-btn" class="chatbot-close-btn"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div id="chatbot-messages" class="chatbot-messages">
+        <div class="chat-message bot-message">
+          <p>Hello, wanderer. What kind of story are you looking for today?</p>
+        </div>
+      </div>
+      <div class="chatbot-input-area">
+        <input type="text" id="chatbot-input" placeholder="Describe a mood, setting, or feeling...">
+        <button id="chatbot-send-btn" class="chatbot-send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+  <script src="../js/chatbot.js"></script>
 
 </body>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const btn = document.getElementById('themeToggle');
-    if (!btn) {
-        console.error('themeToggle button not found');
-        return;
-    }
-
-    const icon = btn.querySelector('i');
-    const STORAGE_KEY = 'bibliodrift_theme';
-
-    function applyTheme(theme) {
-        if (theme === 'night') {
-            document.documentElement.setAttribute('data-theme', 'night');
-            if (icon) icon.className = 'fa-solid fa-sun';
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-            if (icon) icon.className = 'fa-solid fa-moon';
-        }
-
-        localStorage.setItem(STORAGE_KEY, theme);
-        if (typeof restoreTheme === 'function') restoreTheme();
-        console.log('Theme applied:', theme);
-    }
-
-    // Load saved theme
-    // const savedTheme = localStorage.getItem(STORAGE_KEY) || 'light';
-    // applyTheme(savedTheme);
-
-    // // Toggle on click
-    // btn.addEventListener('click', function () {
-    //     const current =
-    //         document.documentElement.getAttribute('data-theme') === 'night'
-    //             ? 'night'
-    //             : 'light';
-
-    //     const next = current === 'night' ? 'light' : 'night';
-    //     applyTheme(next);
-    // });
-});
-</script>
 
 </html>
