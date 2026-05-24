@@ -2349,7 +2349,10 @@ spine.addEventListener('blur', () => this.hideTooltip());
 
             newPreviewBtn.addEventListener('click', () => {
                 if (window.BookPreview && book.id) {
-                    window.BookPreview.open(book.id, book.title || 'Book Preview');
+                    const author = book.author || 'Unknown Author';
+                    const rating = book.rating || 0;
+                    const genre = book.genre || 'Fiction';
+                    window.BookPreview.open(book.id, book.title || 'Book Preview', author, rating, genre);
                 }
             });
         }

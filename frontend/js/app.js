@@ -989,7 +989,10 @@ class BookRenderer {
         if (previewBtn) {
             previewBtn.onclick = () => {
                 if (window.BookPreview && book.id) {
-                    window.BookPreview.open(book.id, book.volumeInfo.title || 'Book Preview');
+                    const author = book.volumeInfo.authors ? book.volumeInfo.authors.join(', ') : 'Unknown Author';
+                    const rating = book.volumeInfo.averageRating || 0;
+                    const genre = book.volumeInfo.categories ? book.volumeInfo.categories[0] : 'Fiction';
+                    window.BookPreview.open(book.id, book.volumeInfo.title || 'Book Preview', author, rating, genre);
                 }
             };
         }
