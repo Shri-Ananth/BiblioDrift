@@ -81,6 +81,18 @@
 // Do NOT re-declare them here — use the globals from config.js directly.
 const IS_DEV = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const moodAnalysisCache = new Map();
+const APP_ROUTE = window.location.pathname.endsWith('/app.html') ? 'app.html' : 'app.html';
+
+
+// ── No-results empty state helpers ──
+function showNoResults() {
+  const el = document.getElementById('no-results-state');
+  if (el) el.style.display = 'flex';
+}
+function hideNoResults() {
+  const el = document.getElementById('no-results-state');
+  if (el) el.style.display = 'none';
+}
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
@@ -323,9 +335,8 @@ async function verifyStoredAuthSession() {
             }
 
             const response = await fetch(`${MOOD_API_BASE}/auth/verify`, {
-                credentials: 'include',
-                headers,
                 method: 'GET',
+                headers,
                 credentials: 'include',
             });
 
@@ -344,7 +355,7 @@ async function verifyStoredAuthSession() {
             }
             return null;
         } catch (error) {
-            console.warn('Auth verification failed; using cached session state if available.', error);
+            console.warn('Auth verification failed (network error); using cached session state if available.', error);
             return storedUser;
         }
     })();
@@ -978,7 +989,10 @@ class BookRenderer {
         if (previewBtn) {
             previewBtn.onclick = () => {
                 if (window.BookPreview && book.id) {
-                    window.BookPreview.open(book.id, book.volumeInfo.title || 'Book Preview');
+                    const author = book.volumeInfo.authors ? book.volumeInfo.authors.join(', ') : 'Unknown Author';
+                    const rating = book.volumeInfo.averageRating || 0;
+                    const genre = book.volumeInfo.categories ? book.volumeInfo.categories[0] : 'Fiction';
+                    window.BookPreview.open(book.id, book.volumeInfo.title || 'Book Preview', author, rating, genre);
                 }
             };
         }
@@ -1430,8 +1444,10 @@ class BookRenderer {
                 await this.renderBookCards(container, data.items.slice(0, maxResults));
             } else {
                 const fallbackBooks = getFallbackBooks(query, maxResults);
-                if (fallbackBooks.length > 0) {
+                if (fallbackBooks.length > 0 && container.id !== 'search-results-grid') {
                     await this.renderBookCards(container, fallbackBooks);
+                } else if (container.id === 'search-results-grid') {
+                    showNoResults();
                 } else {
                     container.innerHTML = `
                         <div class="empty-state">
@@ -1443,19 +1459,15 @@ class BookRenderer {
         } catch (err) {
             console.error("Failed to fetch books", err);
             const fallbackBooks = getFallbackBooks(query, maxResults);
-            if (fallbackBooks.length > 0) {
+            if (fallbackBooks.length > 0 && container.id !== 'search-results-grid') {
                 await this.renderBookCards(container, fallbackBooks);
                 return;
+            } else if (container.id === 'search-results-grid') {
+                showNoResults();
+                return;
             }
-
-            showToast("Failed to load bookshelf.", "error");
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <p>Bookshelf Empty (API connection failed)</p>
-                </div>`;
-        }
     }
+}
 
     async renderMoodCategorySection(categoryConfig, elementId, maxResults = 5) {
         const container = document.getElementById(elementId);
@@ -1539,6 +1551,11 @@ class BookRenderer {
 
     async renderBookCards(container, books) {
         if (container.id === 'search-results-grid') {
+            if (!books || books.length === 0) {
+                showNoResults();
+                return;
+            }
+            hideNoResults();
             window.searchFilterManager = new SearchFilterManager(container, books, this);
             return;
         }
@@ -1565,6 +1582,8 @@ class BookRenderer {
         if (container.children.length === 0) {
             container.innerHTML = '<p class="empty-state">Failed to load books. Please check your connection.</p>';
         }
+
+        
     }
 }
 
@@ -2902,6 +2921,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const genreManager = new GenreManager(libManager);
     genreManager.init();
+
+    // ── No-results suggestion tag clicks ──
+    document.querySelectorAll('.mood-suggestion-tag').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const input = document.getElementById('searchInput');
+        if (!input) return;
+        input.value = btn.dataset.mood;
+        window.location.href = `index.html?q=${encodeURIComponent(btn.dataset.mood)}`;
+    });
+    });
+
     const exportBtn = document.getElementById("export-library");
     if (exportBtn) {
         const isLibraryPage = document.getElementById("shelf-want");
@@ -2954,7 +2984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Only redirect to discovery search if we're not already on the library page 
             // where search is handled by the local library filter.
             if (!window.location.pathname.includes('library.html')) {
-                window.location.href = `index.html?q=${encodeURIComponent(searchInput.value.trim())}`;
+                window.location.href = `${APP_ROUTE}?q=${encodeURIComponent(searchInput.value.trim())}`;
             }
         }
     };
@@ -3542,7 +3572,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             SafeStorage.remove('bibliodrift_user');
             SafeStorage.remove('bibliodrift_token');
             SafeStorage.remove('isLoggedIn');
-            window.location.href = 'index.html';
+            window.location.href = APP_ROUTE;
         });
     }
     // Scroll Manager (Back to Top)
@@ -4275,3 +4305,151 @@ function _startReadingMoodQuiz() {
 
 _startReadingMoodQuiz();
 
+function showForgotResetLink(resetUrl) {
+    const box = document.getElementById('forgotResetLinkBox');
+    if (!box || !resetUrl) return;
+    box.style.display = 'block';
+    box.innerHTML = `
+        <strong>Development reset link</strong> (no email was sent):<br>
+        <a href="${resetUrl}">Open link to set a new password</a>
+    `;
+}
+
+async function handleForgotPassword(event) {
+    if (event) event.preventDefault();
+    const btn = document.getElementById('forgotSubmitBtn');
+    const emailInput = document.getElementById('forgotEmail');
+    const linkBox = document.getElementById('forgotResetLinkBox');
+    const email = emailInput?.value?.trim() || '';
+    const originalText = btn ? btn.textContent : 'Send reset link';
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        if (typeof showToast === 'function') showToast('Enter a valid email address', 'error');
+        else alert('Enter a valid email address');
+        return;
+    }
+
+    if (linkBox) {
+        linkBox.style.display = 'none';
+        linkBox.innerHTML = '';
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+    }
+
+    try {
+        const res = await fetch(`${MOOD_API_BASE}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        const message = data.message
+            || 'If an account exists for that email, password reset instructions have been sent.';
+
+        if (res.ok) {
+            if (data.reset_url) {
+                showForgotResetLink(data.reset_url);
+                console.info('[Dev] Password reset link:', data.reset_url);
+                if (typeof showToast === 'function') {
+                    showToast('No email sent — use the reset link shown on this page.', 'info');
+                }
+            } else if (typeof showToast === 'function') {
+                showToast(message, 'success');
+            } else {
+                alert(message + '\n\n(No email is sent by the server yet.)');
+            }
+        } else {
+            const err = data.error || data.message || 'Unable to send reset link.';
+            if (typeof showToast === 'function') showToast(err, 'error');
+            else alert(err);
+        }
+    } catch (error) {
+        console.error('Forgot password failed:', error);
+        if (typeof showToast === 'function') {
+            showToast('Could not reach the server. Use http://127.0.0.1:5500 (not file://) and ensure Flask is running.', 'error');
+        } else {
+            alert('Network error. Use http://127.0.0.1:5500 and ensure the backend is running on port 5000.');
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+}
+
+window.handleForgotPassword = handleForgotPassword;
+
+async function handleResetPassword(event) {
+    if (event) event.preventDefault();
+
+    const btn = document.getElementById('resetSubmitBtn');
+    const pwdInput = document.getElementById('resetNewPassword');
+    const originalText = btn ? btn.textContent : 'Reset password';
+    const newPassword = pwdInput?.value || '';
+
+    // Get the token from the URL e.g. auth.html?mode=reset&token=xxx
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (!token) {
+        const err = 'Reset token is missing from the URL.';
+        if (typeof showToast === 'function') showToast(err, 'error');
+        else alert(err);
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        const err = 'Password must be at least 6 characters long.';
+        if (typeof showToast === 'function') showToast(err, 'error');
+        else alert(err);
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Resetting...';
+    }
+
+    try {
+        const res = await fetch(`${MOOD_API_BASE}/auth/reset-password/${encodeURIComponent(token)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ new_password: newPassword }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in.', 'success');
+            else alert('Password reset successfully! You can now log in.');
+
+            setTimeout(() => {
+                window.location.href = 'auth.html?mode=login';
+            }, 2000);
+        } else {
+            const err = data.error || data.message || 'Failed to reset password.';
+            if (typeof showToast === 'function') showToast(err, 'error');
+            else alert(err);
+        }
+    } catch (error) {
+        console.error('Reset password failed:', error);
+        if (typeof showToast === 'function') {
+            showToast('Could not reach the server. Ensure backend is running.', 'error');
+        } else {
+            alert('Network error. Ensure the backend is running on port 5000.');
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+}
+
+window.handleResetPassword = handleResetPassword;
