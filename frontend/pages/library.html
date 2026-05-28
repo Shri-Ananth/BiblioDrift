@@ -10,6 +10,42 @@
                 document.documentElement.setAttribute('data-theme', 'night');
             }
         })();
+        document.addEventListener('DOMContentLoaded', function () {
+            const btn = document.getElementById('themeToggle');
+            if (!btn) {
+                console.error('themeToggle button not found');
+                return;
+            }
+
+            const icon = btn.querySelector('i');
+            const STORAGE_KEY = 'bibliodrift_theme';
+
+            function applyTheme(theme) {
+                if (theme === 'night') {
+                    document.documentElement.setAttribute('data-theme', 'night');
+                    if (icon) icon.className = 'fa-solid fa-sun';
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    if (icon) icon.className = 'fa-solid fa-moon';
+                }
+
+                localStorage.setItem(STORAGE_KEY, theme);
+                if (typeof restoreTheme === 'function') restoreTheme();
+            }
+
+            const savedTheme = localStorage.getItem(STORAGE_KEY) || 'light';
+            applyTheme(savedTheme);
+
+            btn.addEventListener('click', function () {
+                const current =
+                    document.documentElement.getAttribute('data-theme') === 'night'
+                        ? 'night'
+                        : 'light';
+
+                const next = current === 'night' ? 'light' : 'night';
+                applyTheme(next);
+            });
+        });
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -53,6 +89,10 @@
 </head>
 
 <body class="library-page">
+    <div id="sc-glow-outer"></div>
+    <div id="sc-glow-mid"></div>
+    <div id="sc-glow-inner"></div>
+    <div id="sc-dot"></div>
 
       <header>
     <a href="app.html" class="logo">
@@ -702,8 +742,7 @@
         <div id="ambientPanel" class="ambient-panel">
             <h3 style="color: var(--text-main) !important;">Ambient Sanctuary</h3>
             <div class="ambient-option">
-                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-cloud-rain"></i> Rainy
-                    Evening</span>
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-cloud-rain"></i> Rainy Evening</span>
                 <label class="switch">
                     <input type="checkbox" id="rainToggle">
                     <span class="slider"></span>
@@ -717,8 +756,42 @@
                 </label>
             </div>
             <div class="ambient-option">
-                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-water"></i> Calm Ocean
-                    Waves</span>
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-rocket"></i> Space Drift</span>
+                <label class="switch">
+                    <input type="checkbox" id="spaceToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ambient-option">
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-train"></i> Night Train</span>
+                <label class="switch">
+                    <input type="checkbox" id="trainToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ambient-option">
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-tree"></i> Forest Cabin</span>
+                <label class="switch">
+                    <input type="checkbox" id="forestToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ambient-option">
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-wand-sparkles"></i> Magic Realm</span>
+                <label class="switch">
+                    <input type="checkbox" id="magicToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ambient-option">
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-torii-gate"></i> Wisteria Night</span>
+                <label class="switch">
+                    <input type="checkbox" id="animeToggle">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="ambient-option">
+                <span style="color: var(--text-main) !important;"><i class="fa-solid fa-water"></i> Calm Ocean Waves</span>
                 <label class="switch">
                     <input type="checkbox" id="oceanToggle">
                     <span class="slider"></span>
